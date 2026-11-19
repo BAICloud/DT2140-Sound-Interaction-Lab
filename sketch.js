@@ -31,16 +31,27 @@ let turntimer = 0;
 // AUDIO
 //==========================================================================================
 
+let dspOn = false;
+
 function contextAudioStart() {
   if (!dspNode) {
     return;
   }
-  if (audioContext.state === 'suspended') {
+  dspOn = !dspOn;
+  if (dspOn) {
     audioContext.resume();
-    // startDsp();
+    try {
+      dspNode.connect(audioContext.destination);
+    } catch (e) {}
     buttons[0].html('Turn Off DSP');
-    setMotionListeners()
+    setMotionListeners();
   } else {
+    if (dspNode.getParams().indexOf("/brass/blower/pressure") !== -1) {
+      dspNode.setParamValue("/brass/blower/pressure", 0);
+    }
+    try {
+      dspNode.disconnect();
+    } catch (e) {}
     audioContext.suspend();
     buttons[0].html('Turn On DSP');
   }

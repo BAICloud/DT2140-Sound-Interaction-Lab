@@ -12,7 +12,7 @@ let dspNodeParams = null;
 let jsonParams = null;
 
 // Change here to ("tuono") depending on your wasm file name
-const dspName = "bells";
+const dspName = "brass";
 const instance = new FaustWasm2ScriptProcessor(dspName);
 
 // output to window or npm package module
@@ -25,7 +25,7 @@ if (typeof module === "undefined") {
 }
 
 // The name should be the same as the WASM file, so change tuono with brass if you use brass.wasm
-bells.createDSP(audioContext, 1024)
+brass.createDSP(audioContext, 1024)
     .then(node => {
         dspNode = node;
         dspNode.connect(audioContext.destination);
@@ -33,6 +33,11 @@ bells.createDSP(audioContext, 1024)
         const jsonString = dspNode.getJSON();
         jsonParams = JSON.parse(jsonString)["ui"][0]["items"];
         dspNodeParams = jsonParams
+        // These defaults are silent. This preset is the range where the model actually speaks.
+        dspNode.setParamValue("/brass/brassModel/tubeLength", 0.6);
+        dspNode.setParamValue("/brass/brassModel/lipsTension", 0.6);
+        dspNode.setParamValue("/brass/brassModel/mute", 0);
+        dspNode.setParamValue("/brass/blower/breathGain", 0.5);
         // const exampleMinMaxParam = findByAddress(dspNodeParams, "/thunder/rumble");
         // // ALWAYS PAY ATTENTION TO MIN AND MAX, ELSE YOU MAY GET REALLY HIGH VOLUMES FROM YOUR SPEAKERS
         // const [exampleMinValue, exampleMaxValue] = getParamMinMax(exampleMinMaxParam);
@@ -56,10 +61,20 @@ function accelerationChange(accx, accy, accz) {
 }
 
 function rotationChange(rotx, roty, rotz) {
+    // A laptop has no tilt sensor, so these values stay empty.
+    // Writing them every frame kept the breath pressure at 0.
+    if (roty == null || Number.isNaN(roty)) {
+        return;
+    }
+    const tilt = Math.min(Math.abs(roty) / 45, 1);
+    playAudio(tilt);
 }
 
-function mousePressed() {
-    // playAudio()
+function mousePressed(event) {
+    if (event && event.target && event.target.closest && event.target.closest("button")) {
+        return;
+    }
+    playAudio(0.7);
     // Use this for debugging from the desktop!
 }
 
@@ -74,7 +89,6 @@ function deviceTurned() {
 function deviceShaken() {
     shaketimer = millis();
     statusLabels[0].style("color", "pink");
-    playAudio();
 }
 
 function getMinMaxParam(address) {
@@ -95,15 +109,14 @@ function getMinMaxParam(address) {
 //
 //==========================================================================================
 
-function playAudio() {
+function playAudio(pressure) {
     if (!dspNode) {
         return;
     }
     if (audioContext.state === 'suspended') {
         return;
     }
-    dspNode.setParamValue("/englishBell/gate", 1)
-    setTimeout(() => { dspNode.setParamValue("/englishBell/gate", 0) }, 100);
+    dspNode.setParamValue("/brass/blower/pressure", pressure);
 }
 
 //==========================================================================================
